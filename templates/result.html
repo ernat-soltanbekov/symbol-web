@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Результат — Symbol-Web</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Результат</h1>
+
+        {{with .}}
+        <div class="result-meta">
+            <span class="result-tag">Текст: {{.Text}}</span>
+            <span class="result-tag">Баннер: {{.Banner}}</span>
+        </div>
+
+        {{if .Result}}
+        <div class="result-container">
+            <pre id="ascii-result">{{.Result}}</pre>
+        </div>
+        {{else}}
+        <p class="empty-state">Результат не найден.</p>
+        {{end}}
+        {{else}}
+        <p class="empty-state">Нет данных для отображения.</p>
+        {{end}}
+
+        <a href="/" class="back-link">&larr; Создать ещё один арт</a>
+    </div>
+</body>
+</html>

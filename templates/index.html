@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Symbol-Web — ASCII Art Generator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Symbol-Web</h1>
+        <p class="subtitle">Генератор ASCII-арта с AI-помощником</p>
+
+        <form id="symbol-form" class="symbol-form" action="/symbol-art" method="POST">
+            <div class="form-group">
+                <label for="text-input">Введите текст</label>
+                <div class="input-wrapper">
+                    <input
+                        type="text"
+                        id="text-input"
+                        name="text"
+                        maxlength="1000"
+                        placeholder="Type your text..."
+                        autocomplete="off"
+                        value="{{with .}}{{.Text}}{{end}}"
+                        required
+                    >
+                    <div id="suggestions-dropdown" class="suggestions hidden"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="banner-header">
+                    <label>Выберите стиль баннера</label>
+                    <button type="button" id="ai-recommend-btn" class="btn-ai">🤖 AI Recommend Banner</button>
+                </div>
+
+                <div class="banner-options">
+                    <div class="banner-option">
+                        <input type="radio" id="banner-standard" name="banner" value="standard"
+                            {{if .}}{{if eq .Banner "standard"}}checked{{end}}{{else}}checked{{end}}>
+                        <label for="banner-standard" class="banner-label" data-banner="standard">Standard</label>
+                    </div>
+                    <div class="banner-option">
+                        <input type="radio" id="banner-shadow" name="banner" value="shadow"
+                            {{if .}}{{if eq .Banner "shadow"}}checked{{end}}{{end}}>
+                        <label for="banner-shadow" class="banner-label" data-banner="shadow">Shadow</label>
+                    </div>
+                    <div class="banner-option">
+                        <input type="radio" id="banner-thinkertoy" name="banner" value="thinkertoy"
+                            {{if .}}{{if eq .Banner "thinkertoy"}}checked{{end}}{{end}}>
+                        <label for="banner-thinkertoy" class="banner-label" data-banner="thinkertoy">Thinkertoy</label>
+                    </div>
+                </div>
+
+                <div id="recommendation-result" class="recommendation hidden"></div>
+            </div>
+
+            <div class="actions">
+                <button type="submit" id="generate-btn" class="btn-primary">Создать арт</button>
+                <button type="button" id="get-variations-btn" class="btn-secondary">💡 Get Creative Ideas</button>
+            </div>
+        </form>
+
+        {{with .}}{{if .Result}}
+        <div class="result-container">
+            <label>Результат</label>
+            <pre id="ascii-result">{{.Result}}</pre>
+        </div>
+        {{end}}{{end}}
+    </div>
+
+    <div id="variations-modal" class="modal hidden">
+        <div class="modal-backdrop" id="variations-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Творческие варианты</h2>
+                <button type="button" id="variations-close" class="modal-close" aria-label="Закрыть">&times;</button>
+            </div>
+            <div id="variations-list" class="variations-list"></div>
+        </div>
+    </div>
+
+    <script src="/static/js/suggestions.js"></script>
+    <script src="/static/js/recommendations.js"></script>
+    <script src="/static/js/variations.js"></script>
+</body>
+</html>

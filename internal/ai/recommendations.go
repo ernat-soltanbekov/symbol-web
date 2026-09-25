@@ -1,22 +1,25 @@
 package ai
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
-// Alternative описывает запасной баннер и его оценку.
+// Alternative describes another banner and its relative suitability.
 type Alternative struct {
 	Banner string  `json:"banner"`
 	Score  float64 `json:"score"`
 	Reason string  `json:"reason"`
 }
 
-// Recommendation содержит результат детерминированного анализа текста.
+// Recommendation contains the result of deterministic text profiling.
 type Recommendation struct {
 	Recommended  string        `json:"recommended"`
 	Reasoning    string        `json:"reasoning"`
 	Alternatives []Alternative `json:"alternatives"`
 }
 
-// RecommendBanner выбирает баннер по длине, регистру и специальным символам.
+// RecommendBanner uses length, case and punctuation without any network calls.
 func RecommendBanner(text string) Recommendation {
 	letters := 0
 	upper := 0
@@ -28,7 +31,7 @@ func RecommendBanner(text string) Recommendation {
 			upper++
 		case char >= 'a' && char <= 'z':
 			letters++
-		case char != ' ' && (char < '0' || char > '9'):
+		case !unicode.IsSpace(char) && (char < '0' || char > '9'):
 			special++
 		}
 	}

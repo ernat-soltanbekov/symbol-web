@@ -2,15 +2,35 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ошибка - Ascii Art Web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10110f">
+    <title>Ошибка {{.Status}} — Symbol-Web</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body>
-    <div class="container error-page">
-        <div class="error-code">{{.Status}}</div>
-        <div class="error-message">{{.Message}}</div>
-        <a href="/" class="back-link">&larr; Вернуться на главную</a>
-    </div>
+<body class="error-body">
+    <header class="site-header page-width">
+        <a class="brand" href="/" aria-label="Symbol-Web — главная">
+            <span class="brand-mark" aria-hidden="true">s<span>_</span></span>
+            <span>symbol<span class="brand-suffix">/web</span></span>
+        </a>
+        <span class="location-tag">ASTANA, KZ</span>
+    </header>
+    <main class="error-page page-width">
+        <p class="eyebrow">ДАЖЕ У ИДЕЙ БЫВАЮТ ПАУЗЫ</p>
+        <div class="error-code" aria-hidden="true">{{.Status}}<span>_</span></div>
+        <h1>Небольшая заминка.</h1>
+        <p class="error-message">Ошибка {{.Status}}: {{.Message}}</p>
+        <a href="/#workspace" class="button button-primary">
+            Вернуться в студию <span aria-hidden="true">↗</span>
+        </a>
+        <p class="error-hint">
+            Чтобы вернуться к введённому тексту, используй кнопку «Назад» в браузере.
+        </p>
+    </main>
+    <footer class="site-footer page-width">
+        <span class="footer-brand">symbol/web</span>
+        <p>Идеи всегда находят форму.</p>
+    </footer>
 </body>
 </html>

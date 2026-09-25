@@ -2,87 +2,273 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Symbol-Web — ASCII Art Generator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+        name="description"
+        content="Symbol-Web — студия ASCII-арта. Превращайте текст в символы, выбирайте стиль и находите новые идеи с AI-помощником."
+    >
+    <meta name="theme-color" content="#10110f">
+    <title>Symbol-Web — идеи обретают форму</title>
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="/static/js/app.js" defer></script>
+    <script src="/static/js/suggestions.js" defer></script>
+    <script src="/static/js/recommendations.js" defer></script>
+    <script src="/static/js/variations.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Symbol-Web</h1>
-        <p class="subtitle">Генератор ASCII-арта с AI-помощником</p>
+    <a class="skip-link" href="#workspace">Перейти к генератору</a>
+    <header class="site-header page-width">
+        <a class="brand" href="/" aria-label="Symbol-Web — главная">
+            <span class="brand-mark" aria-hidden="true">s<span>_</span></span>
+            <span>symbol<span class="brand-suffix">/web</span></span>
+        </a>
+        <nav class="header-nav" aria-label="Навигация">
+            <a href="#workspace">Студия <span aria-hidden="true">↗</span></a>
+            <a href="#how-it-works">Как это работает</a>
+        </nav>
+        <span class="location-tag"><span aria-hidden="true">◉</span> ASTANA, KZ</span>
+    </header>
 
-        <form id="symbol-form" class="symbol-form" action="/symbol-art" method="POST">
-            <div class="form-group">
-                <label for="text-input">Введите текст</label>
-                <div class="input-wrapper">
-                    <input
-                        type="text"
-                        id="text-input"
-                        name="text"
-                        maxlength="1000"
-                        placeholder="Type your text..."
-                        autocomplete="off"
-                        value="{{with .}}{{.Text}}{{end}}"
-                        required
-                    >
-                    <div id="suggestions-dropdown" class="suggestions hidden"></div>
+    <main>
+        <section class="hero page-width" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">
+                    <span class="status-dot" aria-hidden="true"></span> CREATIVE CODE. LOCAL SPIRIT.
+                </p>
+                <h1 id="hero-title">Большие идеи.<br><span>Только символы.</span></h1>
+                <p class="hero-description">
+                    Твоя идея. Твой характер. Преврати текст в ASCII-арт —
+                    для следующего проекта, хакатона или просто так.
+                </p>
+                <div class="hero-tags">
+                    <span>3 стиля</span>
+                    <span>AI-помощник</span>
+                    <span>∞ идей</span>
                 </div>
             </div>
-
-            <div class="form-group">
-                <div class="banner-header">
-                    <label>Выберите стиль баннера</label>
-                    <button type="button" id="ai-recommend-btn" class="btn-ai">🤖 AI Recommend Banner</button>
+            <div class="hero-art" aria-hidden="true">
+                <div class="art-label">
+                    <span>IDEA → CODE → ART</span>
+                    <span>01 / ∞</span>
                 </div>
-
-                <div class="banner-options">
-                    <div class="banner-option">
-                        <input type="radio" id="banner-standard" name="banner" value="standard"
-                            {{if .}}{{if eq .Banner "standard"}}checked{{end}}{{else}}checked{{end}}>
-                        <label for="banner-standard" class="banner-label" data-banner="standard">Standard</label>
-                    </div>
-                    <div class="banner-option">
-                        <input type="radio" id="banner-shadow" name="banner" value="shadow"
-                            {{if .}}{{if eq .Banner "shadow"}}checked{{end}}{{end}}>
-                        <label for="banner-shadow" class="banner-label" data-banner="shadow">Shadow</label>
-                    </div>
-                    <div class="banner-option">
-                        <input type="radio" id="banner-thinkertoy" name="banner" value="thinkertoy"
-                            {{if .}}{{if eq .Banner "thinkertoy"}}checked{{end}}{{end}}>
-                        <label for="banner-thinkertoy" class="banner-label" data-banner="thinkertoy">Thinkertoy</label>
-                    </div>
+                <div class="art-orbit"></div>
+                <div class="art-orbit orbit-two"></div>
+                <div class="code-sculpture">
+                    <span>&lt;</span>
+                    <span class="sculpture-star">✳</span>
+                    <span>&gt;</span>
                 </div>
-
-                <div id="recommendation-result" class="recommendation hidden"></div>
+                <div class="art-bottom">
+                    <span>BUILD SOMETHING<br>THAT MATTERS.</span>
+                    <span class="art-arrow">↗</span>
+                </div>
             </div>
+        </section>
 
-            <div class="actions">
-                <button type="submit" id="generate-btn" class="btn-primary">Создать арт</button>
-                <button type="button" id="get-variations-btn" class="btn-secondary">💡 Get Creative Ideas</button>
+        <section class="workspace-section page-width" id="workspace" aria-labelledby="workspace-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">ТВОЯ ТВОРЧЕСКАЯ СРЕДА</p>
+                    <h2 id="workspace-title">От текста — к характеру<span class="lime-dot">.</span></h2>
+                </div>
+                <span
+                    class="mode-badge"
+                    title="{{if .MockMode}}Подсказки и идеи работают локально по готовым примерам{{else}}Для подсказок и идей настроен внешний LLM-сервис{{end}}"
+                >
+                    <span class="status-dot" aria-hidden="true"></span>
+                    {{if .MockMode}}AI · деморежим{{else}}AI · LLM-режим{{end}}
+                </span>
             </div>
-        </form>
+            <div class="workspace-grid">
+                <form id="symbol-form" class="editor-panel" action="/symbol-art" method="POST">
+                    <div class="panel-heading">
+                        <span class="panel-number">01</span>
+                        <h3>Задай настроение</h3>
+                        <span class="panel-caption">INPUT</span>
+                    </div>
+                    <div class="field-heading">
+                        <label for="text-input">Твой текст</label>
+                        <button class="text-button" id="clear-input" type="button" hidden>Очистить</button>
+                    </div>
+                    <div class="input-wrapper">
+                        <textarea
+                            id="text-input"
+                            name="text"
+                            rows="4"
+                            maxlength="1000"
+                            placeholder="Hello, World!"
+                            spellcheck="false"
+                            autocomplete="off"
+                            aria-describedby="input-help input-count"
+                            aria-controls="suggestions-dropdown"
+                            required
+                        >{{.Text}}</textarea>
+                        <div
+                            id="suggestions-dropdown"
+                            class="suggestions"
+                            role="region"
+                            aria-label="Подсказки для текста"
+                            hidden
+                        ></div>
+                    </div>
+                    <div class="input-meta">
+                        <p id="input-help">Латиница, цифры, символы и переносы строк.</p>
+                        <span id="input-count">До 1000 знаков</span>
+                    </div>
+                    <p id="suggestions-status" class="sr-only" role="status"></p>
+                    <div class="demo-row" id="demo-controls" hidden>
+                        <span>Попробуй:</span>
+                        <button type="button" data-demo="ASTANA HUB">ASTANA HUB</button>
+                        <button type="button" data-demo="Hello, World!">Hello, World!</button>
+                        <button type="button" data-demo="Build the future">Build the future</button>
+                    </div>
 
-        {{with .}}{{if .Result}}
-        <div class="result-container">
-            <label>Результат</label>
-            <pre id="ascii-result">{{.Result}}</pre>
+                    <fieldset class="banner-fieldset">
+                        <legend>Стиль баннера</legend>
+                        <div class="banner-options">
+                            <div class="banner-option">
+                                <input
+                                    type="radio"
+                                    id="banner-standard"
+                                    name="banner"
+                                    value="standard"
+                                    {{if or (eq .Banner "standard") (eq .Banner "")}}checked{{end}}
+                                >
+                                <label class="banner-label" for="banner-standard" data-banner="standard">
+                                    <span class="banner-sample sample-standard" aria-hidden="true">Aa</span>
+                                    <span class="banner-name">Standard</span>
+                                    <span class="banner-detail">Чётко и по делу</span>
+                                    <span class="radio-indicator" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="banner-option">
+                                <input
+                                    type="radio"
+                                    id="banner-shadow"
+                                    name="banner"
+                                    value="shadow"
+                                    {{if eq .Banner "shadow"}}checked{{end}}
+                                >
+                                <label class="banner-label" for="banner-shadow" data-banner="shadow">
+                                    <span class="banner-sample sample-shadow" aria-hidden="true">Aa</span>
+                                    <span class="banner-name">Shadow</span>
+                                    <span class="banner-detail">С характером</span>
+                                    <span class="radio-indicator" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                            <div class="banner-option">
+                                <input
+                                    type="radio"
+                                    id="banner-thinkertoy"
+                                    name="banner"
+                                    value="thinkertoy"
+                                    {{if eq .Banner "thinkertoy"}}checked{{end}}
+                                >
+                                <label class="banner-label" for="banner-thinkertoy" data-banner="thinkertoy">
+                                    <span class="banner-sample sample-thinkertoy" aria-hidden="true">Aa</span>
+                                    <span class="banner-name">Thinkertoy</span>
+                                    <span class="banner-detail">Легко и игриво</span>
+                                    <span class="radio-indicator" aria-hidden="true"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <div class="recommend-row" id="recommend-controls" hidden>
+                        <span>Не знаешь, что выбрать?</span>
+                        <button type="button" id="ai-recommend-btn" class="recommend-button">
+                            <span aria-hidden="true">✦</span> AI Recommend
+                        </button>
+                    </div>
+                    <div id="recommendation-result" class="recommendation" role="status" hidden></div>
+                    <div class="editor-actions">
+                        <button type="submit" id="generate-btn" class="button button-primary">
+                            <span>Создать ASCII-арт</span>
+                            <span aria-hidden="true">↗</span>
+                        </button>
+                        <button type="button" id="get-variations-btn" class="button button-secondary" hidden>
+                            <span aria-hidden="true">✦</span> Get Ideas
+                        </button>
+                    </div>
+                    <p id="form-status" class="form-status" role="status"></p>
+                    <p class="editor-footnote">
+                        {{if .MockMode}}
+                        AI-подсказки в деморежиме · без внешних запросов
+                        {{else}}
+                        AI-подсказки · текст отправляется в настроенный LLM
+                        {{end}}
+                        <br>Рекомендация стиля всегда работает по правилам.
+                    </p>
+                    <noscript>
+                        <p class="noscript-note">
+                            Генератор работает без JavaScript.
+                            Для подсказок, идей и сохранения включи JavaScript.
+                        </p>
+                    </noscript>
+                </form>
+
+                {{template "result.html" .}}
+            </div>
+            <section class="history-panel" id="history-panel" aria-labelledby="history-heading" hidden>
+                <div class="history-heading">
+                    <h3 id="history-heading">Недавние идеи</h3>
+                    <span>Хранятся только в этом браузере</span>
+                    <button type="button" class="text-button" id="clear-history">Очистить историю</button>
+                </div>
+                <div class="history-list" id="history-list"></div>
+            </section>
+        </section>
+
+        <section class="how-section page-width" id="how-it-works" aria-labelledby="how-title">
+            <div class="how-intro">
+                <p class="eyebrow">МЕНЬШЕ СЛОЖНОСТИ. БОЛЬШЕ ТВОРЧЕСТВА.</p>
+                <h2 id="how-title">Идее нужны<br>всего три шага.</h2>
+            </div>
+            <ol class="steps">
+                <li>
+                    <span class="step-index">01 /</span>
+                    <h3>Начни со слова</h3>
+                    <p>Название проекта, приветствие или следующая большая идея.</p>
+                </li>
+                <li>
+                    <span class="step-index">02 /</span>
+                    <h3>Добавь характер</h3>
+                    <p>Выбери один из трёх стилей. Помощник подскажет, какой подходит.</p>
+                </li>
+                <li>
+                    <span class="step-index">03 /</span>
+                    <h3>Забирай и создавай</h3>
+                    <p>Копируй арт в README, терминал или сохрани как текстовый файл.</p>
+                </li>
+            </ol>
+        </section>
+    </main>
+
+    <footer class="site-footer page-width">
+        <a href="/" class="footer-brand">symbol/web<span aria-hidden="true">↗</span></a>
+        <p>
+            Независимый проект. Вдохновлено
+            <a href="https://astanahub.com/" target="_blank" rel="noopener noreferrer">Astana Hub ↗</a>
+        </p>
+        <span class="footer-note">MADE OF SYMBOLS. MADE FOR IDEAS.</span>
+    </footer>
+    <dialog
+        id="variations-modal"
+        class="variations-modal"
+        aria-labelledby="variations-title"
+        aria-describedby="variations-description"
+    >
+        <div class="modal-header">
+            <div>
+                <p class="eyebrow">CREATIVE BOOST</p>
+                <h2 id="variations-title">Идея, ещё смелее.</h2>
+            </div>
+            <button type="button" id="variations-close" class="icon-button" aria-label="Закрыть варианты">×</button>
         </div>
-        {{end}}{{end}}
-    </div>
-
-    <div id="variations-modal" class="modal hidden">
-        <div class="modal-backdrop" id="variations-backdrop"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Творческие варианты</h2>
-                <button type="button" id="variations-close" class="modal-close" aria-label="Закрыть">&times;</button>
-            </div>
-            <div id="variations-list" class="variations-list"></div>
-        </div>
-    </div>
-
-    <script src="/static/js/suggestions.js"></script>
-    <script src="/static/js/recommendations.js"></script>
-    <script src="/static/js/variations.js"></script>
+        <p id="variations-description" class="modal-description">
+            Выбери настроение — текст и стиль появятся в редакторе.
+        </p>
+        <div id="variations-list" class="variations-list" aria-live="polite"></div>
+    </dialog>
 </body>
 </html>

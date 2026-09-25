@@ -1,143 +1,79 @@
 (function () {
-  // IIFE изолирует переменные модуля от глобальной области видимости
-  const btn = document.getElementById("ai-recommend-btn");
-  const result = document.getElementById("recommendation-result");
-  const textInput = document.getElementById("text-input");
-  const bannerRadios = document.querySelectorAll('input[name="banner"]');
+    "use strict";
 
-  // Подстраховка: если сервер отрисовал страницу без выбранного баннера
-  // (например, при GET-запросе без данных), выбираем "standard" по умолчанию
-  ensureDefaultBannerSelected();
+    const studio = window.SymbolStudio;
+    if (!studio) return;
+    const button = document.getElementById("ai-recommend-btn");
+    const result = document.getElementById("recommendation-result");
+    const idleLabel = button.textContent;
+    let controller;
+    let version = 0;
+    let applyingRecommendation = false;
 
-  if (!btn || !result || !textInput) return;
+    function clearHighlights() {
+        document.querySelectorAll(".banner-label.ai-pick").forEach((label) => label.classList.remove("ai-pick"));
+    }
 
-  function ensureDefaultBannerSelected() {
-    const checked = document.querySelector('input[name="banner"]:checked');
-    if (checked) return;
-    const fallback = document.getElementById("banner-standard");
-    if (fallback) fallback.checked = true;
-  }
+    function reset() {
+        controller?.abort();
+        version += 1;
+        studio.setBusy(button, false);
+        button.textContent = idleLabel;
+        result.hidden = true;
+        result.replaceChildren();
+        clearHighlights();
+    }
 
-  function clearHighlights() {
-    document.querySelectorAll(".banner-label.ai-pick").forEach((label) => {
-      label.classList.remove("ai-pick");
+    studio.input.addEventListener("input", reset);
+    studio.form.addEventListener("change", (event) => {
+        if (event.target.name === "banner" && button.disabled && !applyingRecommendation) reset();
     });
-  }
-
-  function highlightBanner(banner) {
-    clearHighlights();
-    const label = document.querySelector(`.banner-label[data-banner="${banner}"]`);
-    if (label) label.classList.add("ai-pick");
-  }
-
-  function selectBanner(banner) {
-    bannerRadios.forEach((radio) => {
-      radio.checked = radio.value === banner;
+    document.getElementById("recommend-controls").hidden = false;
+    button.addEventListener("click", async () => {
+        reset();
+        const text = studio.input.value.trim();
+        const invalid = studio.validate(text);
+        if (invalid) {
+            studio.notify(invalid, true);
+            studio.input.focus();
+            return;
+        }
+        const requestedVersion = version;
+        const active = new AbortController();
+        controller = active;
+        studio.setBusy(button, true);
+        button.textContent = "Подбираем стиль…";
+        result.hidden = false;
+        result.textContent = "Анализируем длину, регистр и символы…";
+        try {
+            const data = await studio.request("/api/recommend-banner", { text }, active.signal);
+            if (requestedVersion !== version) return;
+            if (!studio.banners.includes(data?.recommended) || typeof data.reasoning !== "string") throw new Error("Не удалось подобрать стиль. Попробуй ещё раз.");
+            result.replaceChildren(
+                studio.element("p", "recommendation-title", "Выбор по правилам: " + data.recommended),
+                studio.element("p", "recommendation-reason", data.reasoning),
+            );
+            if (Array.isArray(data.alternatives)) {
+                const list = studio.element("div", "alternatives-list");
+                data.alternatives.slice(0, 2).forEach((alternative) => {
+                    if (!studio.banners.includes(alternative?.banner) || typeof alternative.reason !== "string") return;
+                    const row = studio.element("div", "alternative-row");
+                    row.append(studio.element("span", "alternative-name", alternative.banner), studio.element("span", "alternative-reason", alternative.reason));
+                    list.appendChild(row);
+                });
+                if (list.childElementCount) result.appendChild(list);
+            }
+            applyingRecommendation = true;
+            studio.selectBanner(data.recommended);
+            applyingRecommendation = false;
+            document.querySelector('.banner-label[data-banner="' + data.recommended + '"]').classList.add("ai-pick");
+        } catch (error) {
+            if (error.name !== "AbortError" && requestedVersion === version) result.replaceChildren(studio.element("p", "recommendation-error", error.message));
+        } finally {
+            if (requestedVersion === version) {
+                studio.setBusy(button, false);
+                button.textContent = idleLabel;
+            }
+        }
     });
-  }
-
-  function renderRecommendation(data) {
-    result.innerHTML = "";
-
-    const headline = document.createElement("div");
-    headline.className = "recommendation-headline";
-
-    const badge = document.createElement("span");
-    badge.className = "recommendation-badge";
-    badge.textContent = data.recommended;
-    headline.appendChild(badge);
-
-    result.appendChild(headline);
-
-    const reason = document.createElement("p");
-    reason.className = "recommendation-reason";
-    reason.textContent = data.reasoning;
-    result.appendChild(reason);
-
-    if (Array.isArray(data.alternatives) && data.alternatives.length > 0) {
-      const list = document.createElement("div");
-      list.className = "alternatives-list";
-
-      data.alternatives.forEach((alt) => {
-        const row = document.createElement("div");
-        row.className = "alternative-row";
-
-        const name = document.createElement("span");
-        name.className = "alternative-name";
-        name.textContent = alt.banner;
-        row.appendChild(name);
-
-        const bar = document.createElement("div");
-        bar.className = "score-bar";
-        const fill = document.createElement("div");
-        fill.className = "score-bar-fill";
-        fill.style.width = `${Math.round((alt.score || 0) * 100)}%`;
-        bar.appendChild(fill);
-        row.appendChild(bar);
-
-        const reasonText = document.createElement("span");
-        reasonText.className = "alternative-reason";
-        reasonText.textContent = alt.reason;
-        row.appendChild(reasonText);
-
-        list.appendChild(row);
-      });
-
-      result.appendChild(list);
-    }
-
-    result.classList.remove("hidden");
-    // Подсвечиваем и сразу выбираем рекомендованный баннер,
-    // но пользователь всё ещё может вручную выбрать другой
-    highlightBanner(data.recommended);
-    selectBanner(data.recommended);
-  }
-
-  function renderError(message) {
-    result.innerHTML = "";
-    const error = document.createElement("p");
-    error.className = "recommendation-error";
-    error.textContent = message;
-    result.appendChild(error);
-    result.classList.remove("hidden");
-  }
-
-  btn.addEventListener("click", async () => {
-    const text = textInput.value.trim();
-    if (!text) {
-      renderError("Введите текст перед тем, как запросить рекомендацию");
-      return;
-    }
-
-    btn.disabled = true;
-    const originalLabel = btn.textContent;
-    btn.textContent = "Анализ...";
-
-    try {
-      const response = await fetch("/api/recommend-banner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-
-      // 503 означает, что AI-бэкенд недоступен — отдельное сообщение,
-      // чтобы отличать это от прочих ошибок сервера
-      if (response.status === 503) {
-        renderError("Сервис рекомендаций временно недоступен");
-        return;
-      }
-      if (!response.ok) {
-        renderError("Не удалось получить рекомендацию");
-        return;
-      }
-
-      const data = await response.json();
-      renderRecommendation(data);
-    } catch (error) {
-      renderError("Не удалось связаться с сервером");
-    } finally {
-      btn.disabled = false;
-      btn.textContent = originalLabel;
-    }
-  });
 })();

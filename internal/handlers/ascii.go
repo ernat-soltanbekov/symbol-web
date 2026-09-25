@@ -5,9 +5,11 @@ import (
 	"errors"
 	"html/template"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"symbol-web/internal/ai"
 	"symbol-web/internal/ascii"
@@ -25,13 +27,17 @@ type Handler struct {
 
 // PageData содержит данные для главного шаблона.
 type PageData struct {
-	Result string
-	Text   string
-	Banner string
+	Result   string `json:"result"`
+	Text     string `json:"text"`
+	Banner   string `json:"banner"`
+	MockMode bool   `json:"-"`
 }
 
 // New создаёт обработчик с переданными зависимостями.
 func New(generator *ascii.Generator, aiClient *ai.Client, templateDir string, logger *log.Logger) *Handler {
+	if logger == nil {
+		logger = log.Default()
+	}
 	return &Handler{
 		generator:   generator,
 		aiClient:    aiClient,
@@ -52,6 +58,10 @@ func (h *Handler) Register(mux *http.ServeMux) {
 // Home отображает главную страницу.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			h.writeJSONError(w, http.StatusNotFound, "API-маршрут не найден")
+			return
+		}
 		h.renderError(w, http.StatusNotFound, "Страница не найдена")
 		return
 	}
@@ -60,40 +70,72 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		h.renderError(w, http.StatusMethodNotAllowed, "Метод не поддерживается")
 		return
 	}
-	h.renderPage(w, "index.html", PageData{Banner: "standard"})
+	h.renderPage(w, "index.html", PageData{Banner: "standard", MockMode: h.aiClient.MockMode()})
 }
 
 // SymbolArt обрабатывает форму и отображает созданный ASCII-арт.
 func (h *Handler) SymbolArt(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		h.renderError(w, http.StatusMethodNotAllowed, "Метод не поддерживается")
+		h.formError(w, r, http.StatusMethodNotAllowed, "Метод не поддерживается")
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
-	if err := r.ParseForm(); err != nil {
-		h.renderError(w, http.StatusBadRequest, "Некорректные данные формы")
+	mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil || mediaType != "application/x-www-form-urlencoded" {
+		h.formError(w, r, http.StatusBadRequest, "Отправьте текст и баннер через HTML-форму")
 		return
 	}
-	text := r.FormValue("text")
-	banner := r.FormValue("banner")
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+	if err := r.ParseForm(); err != nil {
+		h.formError(w, r, http.StatusBadRequest, "Некорректные данные формы")
+		return
+	}
+	if len(r.PostForm["text"]) != 1 || len(r.PostForm["banner"]) != 1 {
+		h.formError(w, r, http.StatusBadRequest, "Укажите текст и один баннер")
+		return
+	}
+	text := r.PostForm.Get("text")
+	banner := r.PostForm.Get("banner")
 
 	result, err := h.generator.Generate(text, banner)
 	if err != nil {
 		switch {
 		case errors.Is(err, ascii.ErrEmptyText), errors.Is(err, ascii.ErrTextTooLong), errors.Is(err, ascii.ErrInvalidText), errors.Is(err, ascii.ErrInvalidBanner):
-			h.renderError(w, http.StatusBadRequest, err.Error())
+			h.formError(w, r, http.StatusBadRequest, err.Error())
 		case errors.Is(err, ascii.ErrBannerNotFound):
-			h.renderError(w, http.StatusNotFound, "Файл баннера не найден")
+			h.formError(w, r, http.StatusNotFound, "Файл баннера не найден")
 		default:
 			h.logger.Printf("ошибка генерации ASCII-арта: %v", err)
-			h.renderError(w, http.StatusInternalServerError, "Не удалось создать ASCII-арт")
+			h.formError(w, r, http.StatusInternalServerError, "Не удалось создать ASCII-арт")
 		}
 		return
 	}
 
-	h.renderPage(w, "index.html", PageData{Result: result, Text: text, Banner: banner})
+	data := PageData{Result: result, Text: text, Banner: banner, MockMode: h.aiClient.MockMode()}
+	if acceptsJSON(r) {
+		h.writeJSON(w, http.StatusOK, data)
+		return
+	}
+	h.renderPage(w, "index.html", data)
+}
+
+func acceptsJSON(r *http.Request) bool {
+	for _, value := range strings.Split(r.Header.Get("Accept"), ",") {
+		mediaType, params, err := mime.ParseMediaType(strings.TrimSpace(value))
+		if err == nil && mediaType == "application/json" && params["q"] != "0" {
+			return true
+		}
+	}
+	return false
+}
+
+func (h *Handler) formError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	if acceptsJSON(r) {
+		h.writeJSONError(w, status, message)
+		return
+	}
+	h.renderError(w, status, message)
 }
 
 func (h *Handler) renderPage(w http.ResponseWriter, name string, data any) {
@@ -113,16 +155,15 @@ func (h *Handler) renderPage(w http.ResponseWriter, name string, data any) {
 }
 
 func (h *Handler) executeTemplate(name string, data any) ([]byte, error) {
-	path := filepath.Join(h.templateDir, name)
-	if _, err := os.Stat(path); err != nil {
+	paths := []string{filepath.Join(h.templateDir, name)}
+	if name == "index.html" {
+		paths = append(paths, filepath.Join(h.templateDir, "result.html"))
+	}
+	parsed, err := template.ParseFiles(paths...)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, errTemplateNotFound
 		}
-		return nil, err
-	}
-
-	parsed, err := template.ParseFiles(path)
-	if err != nil {
 		return nil, err
 	}
 	var output bytes.Buffer

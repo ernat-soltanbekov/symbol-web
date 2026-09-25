@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime"
 	"net/http"
 	"strings"
 
@@ -73,6 +74,13 @@ func (h *Handler) requireJSONPost(w http.ResponseWriter, r *http.Request) bool {
 		h.writeJSONError(w, http.StatusMethodNotAllowed, "Метод не поддерживается")
 		return false
 	}
+	if contentType := r.Header.Get("Content-Type"); contentType != "" {
+		mediaType, _, err := mime.ParseMediaType(contentType)
+		if err != nil || mediaType != "application/json" {
+			h.writeJSONError(w, http.StatusBadRequest, "Используйте Content-Type: application/json")
+			return false
+		}
+	}
 	return true
 }
 
@@ -91,6 +99,10 @@ func (h *Handler) decodeText(w http.ResponseWriter, r *http.Request) (textReques
 	}
 	if err := ascii.ValidateText(request.Text, false); err != nil {
 		h.writeJSONError(w, http.StatusBadRequest, err.Error())
+		return request, false
+	}
+	if strings.TrimSpace(request.Text) == "" {
+		h.writeJSONError(w, http.StatusBadRequest, "Введите текст для анализа")
 		return request, false
 	}
 	return request, true

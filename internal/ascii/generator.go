@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	"unicode/utf8"
 )
 
 const (
@@ -30,13 +30,11 @@ var (
 // Generator загружает стандартные баннеры из заданного каталога.
 type Generator struct {
 	directory string
-	mu        sync.RWMutex
-	banners   map[string][][]string
 }
 
 // NewGenerator создаёт генератор, который читает баннеры из каталога.
 func NewGenerator(directory string) *Generator {
-	return &Generator{directory: directory, banners: make(map[string][][]string)}
+	return &Generator{directory: directory}
 }
 
 // IsBanner проверяет, входит ли имя в список поддерживаемых баннеров.
@@ -54,7 +52,7 @@ func ValidateText(text string, allowEmpty bool) error {
 	if text == "" && !allowEmpty {
 		return ErrEmptyText
 	}
-	if len([]rune(text)) > maxTextLength {
+	if utf8.RuneCountInString(text) > maxTextLength {
 		return ErrTextTooLong
 	}
 	for _, char := range text {
@@ -114,13 +112,8 @@ func (g *Generator) Generate(text, banner string) (string, error) {
 }
 
 func (g *Generator) loadBanner(name string) ([][]string, error) {
-	g.mu.RLock()
-	cached := g.banners[name]
-	g.mu.RUnlock()
-	if cached != nil {
-		return cached, nil
-	}
-
+	// Файлы небольшие. Читаем их заново, чтобы удалённый или повреждённый
+	// баннер сразу возвращал ошибку, в том числе после успешного запроса.
 	path := filepath.Join(g.directory, name+".txt")
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -140,15 +133,22 @@ func (g *Generator) loadBanner(name string) ([][]string, error) {
 	glyphs := make([][]string, lastASCII-firstASCII+1)
 	for index := range glyphs {
 		start := 1 + index*linesPerGlyph
-		glyphs[index] = append([]string(nil), lines[start:start+characterHeight]...)
+		if lines[start-1] != "" {
+			return nil, fmt.Errorf("%w: отсутствует разделитель перед символом %q", ErrMalformedBanner, rune(index+firstASCII))
+		}
+		rows := lines[start : start+characterHeight]
+		width := len(rows[0])
+		for _, row := range rows {
+			if width == 0 || len(row) != width {
+				return nil, fmt.Errorf("%w: разная ширина строк символа %q", ErrMalformedBanner, rune(index+firstASCII))
+			}
+			for _, char := range row {
+				if char < firstASCII || char > lastASCII {
+					return nil, fmt.Errorf("%w: недопустимый знак в символе %q", ErrMalformedBanner, rune(index+firstASCII))
+				}
+			}
+		}
+		glyphs[index] = rows
 	}
-
-	g.mu.Lock()
-	if existing := g.banners[name]; existing != nil {
-		glyphs = existing
-	} else {
-		g.banners[name] = glyphs
-	}
-	g.mu.Unlock()
 	return glyphs, nil
 }

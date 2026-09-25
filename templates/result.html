@@ -1,33 +1,50 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Результат — Symbol-Web</title>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>Результат</h1>
-
-        {{with .}}
-        <div class="result-meta">
-            <span class="result-tag">Текст: {{.Text}}</span>
-            <span class="result-tag">Баннер: {{.Banner}}</span>
-        </div>
-
-        {{if .Result}}
-        <div class="result-container">
-            <pre id="ascii-result">{{.Result}}</pre>
-        </div>
-        {{else}}
-        <p class="empty-state">Результат не найден.</p>
-        {{end}}
-        {{else}}
-        <p class="empty-state">Нет данных для отображения.</p>
-        {{end}}
-
-        <a href="/" class="back-link">&larr; Создать ещё один арт</a>
+<section class="result-panel" aria-labelledby="result-heading">
+    <div class="panel-heading">
+        <span class="panel-number">02</span>
+        <h3 id="result-heading">Смотри, что получилось</h3>
+        <span class="panel-caption">OUTPUT</span>
     </div>
-</body>
-</html>
+    <div class="result-toolbar">
+        <span class="terminal-label">
+            <span class="status-dot" aria-hidden="true"></span>
+            <span id="result-filename">{{if .Result}}{{.Banner}}{{else}}canvas{{end}}.txt</span>
+        </span>
+        <span id="result-state" class="result-state">{{if .Result}}Готово{{else}}Ждёт твою идею{{end}}</span>
+    </div>
+    <div class="art-canvas" id="art-canvas">
+        <div class="empty-canvas" id="empty-result" {{if .Result}}hidden{{end}}>
+            <span class="empty-symbol" aria-hidden="true">[<span>✳</span>]</span>
+            <p>Здесь начинается<br>что-то большое.</p>
+            <span class="empty-caption">Введи текст и нажми «Создать ASCII-арт»</span>
+        </div>
+        <pre
+            id="ascii-result"
+            tabindex="0"
+            aria-label="Результат ASCII-арта"
+            {{if not .Result}}hidden{{end}}
+        ><code>{{.Result}}</code></pre>
+    </div>
+    <div class="result-actions" id="result-actions" hidden>
+        <span id="result-details" class="result-details">PLAIN TEXT / UTF-8</span>
+        <div>
+            <button
+                type="button"
+                id="copy-result"
+                class="result-button"
+                {{if not .Result}}disabled{{end}}
+            >
+                <span aria-hidden="true">⧉</span> Копировать
+            </button>
+            <button
+                type="button"
+                id="download-result"
+                class="result-button"
+                {{if not .Result}}disabled{{end}}
+            >
+                <span aria-hidden="true">↓</span> .txt
+            </button>
+        </div>
+    </div>
+    <p id="result-status" class="result-feedback" role="status"></p>
+    <div class="canvas-note"><span aria-hidden="true">↳</span> Только текст. Никаких границ для идей.</div>
+</section>

@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -173,6 +174,9 @@ func (c *Client) request(ctx context.Context, endpoint string, body []byte, open
 	}
 	if len(responseBody) > maxResponseSize {
 		return "", false, fmt.Errorf("%w: ответ слишком большой", ErrInvalidResponse)
+	}
+	if !utf8.Valid(responseBody) {
+		return "", false, fmt.Errorf("%w: некорректная кодировка ответа", ErrInvalidResponse)
 	}
 	if openAI {
 		var payload struct {

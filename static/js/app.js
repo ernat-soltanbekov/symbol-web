@@ -189,32 +189,47 @@
 
     copyButton.addEventListener("click", async () => {
         const text = output.textContent;
+        const version = generationVersion;
         try {
             if (!navigator.clipboard?.writeText) throw new Error("Clipboard unavailable");
             await navigator.clipboard.writeText(text);
+            if (version !== generationVersion) return;
             feedback.textContent = "Скопировано. Вставляй туда, где живёт твоя идея.";
         } catch (_) {
-            const range = document.createRange();
-            range.selectNodeContents(output);
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
-            output.focus();
-            feedback.textContent = "Арт выделен. Нажми Ctrl+C или ⌘C, чтобы скопировать.";
+            if (version !== generationVersion) return;
+            try {
+                const selection = window.getSelection();
+                if (!selection) throw new Error("Selection unavailable");
+                const range = document.createRange();
+                range.selectNodeContents(output);
+                selection.removeAllRanges();
+                selection.addRange(range);
+                output.focus();
+                feedback.textContent = "Арт выделен. Нажми Ctrl+C или ⌘C, чтобы скопировать.";
+            } catch (_) {
+                feedback.textContent = "Не удалось скопировать автоматически. Выдели арт вручную или скачай текстовый файл.";
+            }
         }
     });
 
     downloadButton.addEventListener("click", () => {
-        const blob = new Blob([output.textContent], { type: "text/plain;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const link = element("a");
-        link.href = url;
-        link.download = "symbol-web-" + renderedBanner + ".txt";
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        feedback.textContent = "Текстовый файл готов к сохранению.";
+        let url;
+        let link;
+        try {
+            const blob = new Blob([output.textContent], { type: "text/plain;charset=utf-8" });
+            url = URL.createObjectURL(blob);
+            link = element("a");
+            link.href = url;
+            link.download = "symbol-web-" + renderedBanner + ".txt";
+            document.body.appendChild(link);
+            link.click();
+            feedback.textContent = "Текстовый файл готов к сохранению.";
+        } catch (_) {
+            feedback.textContent = "Не удалось скачать файл. Попробуй скопировать арт или сохранить его вручную.";
+        } finally {
+            link?.remove();
+            if (url) window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
     });
 
     function readHistory() {

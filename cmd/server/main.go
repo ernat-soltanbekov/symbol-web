@@ -98,6 +98,7 @@ func staticFiles(directory string) http.Handler {
 
 func middleware(logger *log.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := &responseState{ResponseWriter: w}
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'")
@@ -106,8 +107,23 @@ func middleware(logger *log.Logger, next http.Handler) http.Handler {
 		}
 		started := time.Now()
 		defer func() {
+			logger.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(started).Round(time.Millisecond))
+		}()
+		defer func() {
 			if recovered := recover(); recovered != nil {
+				if recovered == http.ErrAbortHandler {
+					panic(recovered)
+				}
 				logger.Printf("panic while serving %s: %v", r.URL.Path, recovered)
+				if response.committed {
+					// Status and partial bytes cannot be replaced. Let net/http close
+					// the connection so clients can detect the incomplete response.
+					panic(http.ErrAbortHandler)
+				}
+				// The replacement body has its own length, encoding and framing.
+				w.Header().Del("Content-Length")
+				w.Header().Del("Content-Encoding")
+				w.Header().Del("Trailer")
 				if strings.HasPrefix(r.URL.Path, "/api/") || strings.Contains(r.Header.Get("Accept"), "application/json") {
 					w.Header().Set("Content-Type", "application/json; charset=utf-8")
 					w.WriteHeader(http.StatusInternalServerError)
@@ -116,8 +132,33 @@ func middleware(logger *log.Logger, next http.Handler) http.Handler {
 					http.Error(w, "Внутренняя ошибка сервера", http.StatusInternalServerError)
 				}
 			}
-			logger.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(started).Round(time.Millisecond))
 		}()
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(response, r)
 	})
+}
+
+type responseState struct {
+	http.ResponseWriter
+	committed bool
+}
+
+func (w *responseState) WriteHeader(status int) {
+	w.ResponseWriter.WriteHeader(status)
+	if status >= 200 {
+		w.committed = true
+	}
+}
+
+func (w *responseState) Write(data []byte) (int, error) {
+	w.committed = true
+	return w.ResponseWriter.Write(data)
+}
+
+func (w *responseState) FlushError() error {
+	w.committed = true
+	return http.NewResponseController(w.ResponseWriter).Flush()
+}
+
+func (w *responseState) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }

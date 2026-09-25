@@ -56,12 +56,23 @@ func mockSuggestions(text string) []string {
 
 func mockVariations(text string) []Variation {
 	text = compactText(text)
-	return []Variation{
+	variations := []Variation{
 		{Text: trimToRunes(toTitle(text), 49), Description: "Деловой стиль", SuggestedBanner: "standard"},
 		{Text: trimToRunes(strings.ToUpper(text), 48) + "!", Description: "Сильный акцент", SuggestedBanner: "shadow"},
 		{Text: trimToRunes(text, 46) + " :)", Description: "Дружелюбный стиль", SuggestedBanner: "thinkertoy"},
 		{Text: "~ " + trimToRunes(text, 45) + " ~", Description: "Декоративный стиль", SuggestedBanner: "thinkertoy"},
 	}
+	// Truncation can otherwise make styles identical for long punctuation-only text.
+	seen := make(map[string]bool, len(variations))
+	for i := range variations {
+		original := variations[i].Text
+		for number := 2; seen[variations[i].Text]; number++ {
+			suffix := fmt.Sprintf(" (%d)", number)
+			variations[i].Text = trimToRunes(original, 49-len(suffix)) + suffix
+		}
+		seen[variations[i].Text] = true
+	}
+	return variations
 }
 
 func parseSuggestions(content string) ([]string, error) {
@@ -69,7 +80,13 @@ func parseSuggestions(content string) ([]string, error) {
 	seen := make(map[string]bool)
 	result := make([]string, 0, 5)
 	for _, line := range lines {
-		line = strings.TrimSpace(listPrefix.ReplaceAllString(strings.TrimSpace(line), ""))
+		line = strings.TrimSpace(line)
+		// Model formatting is not a completion and must not satisfy the minimum count.
+		switch line {
+		case "```", "```text", "```plaintext", "```json":
+			continue
+		}
+		line = strings.TrimSpace(listPrefix.ReplaceAllString(line, ""))
 		if len(line) >= 2 && ((line[0] == '"' && line[len(line)-1] == '"') || (line[0] == '`' && line[len(line)-1] == '`')) {
 			line = strings.TrimSpace(line[1 : len(line)-1])
 		}
@@ -89,6 +106,9 @@ func parseSuggestions(content string) ([]string, error) {
 }
 
 func parseVariations(content string) ([]Variation, error) {
+	if !utf8.ValidString(content) {
+		return nil, fmt.Errorf("%w: некорректная кодировка вариантов", ErrInvalidResponse)
+	}
 	content = strings.TrimSpace(content)
 	// Some otherwise valid model responses wrap their JSON in a markdown code fence.
 	if strings.HasPrefix(content, "```json\n") && strings.HasSuffix(content, "\n```") {

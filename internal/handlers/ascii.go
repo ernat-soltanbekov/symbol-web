@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"symbol-web/internal/ai"
@@ -123,7 +124,14 @@ func (h *Handler) SymbolArt(w http.ResponseWriter, r *http.Request) {
 func acceptsJSON(r *http.Request) bool {
 	for _, value := range strings.Split(r.Header.Get("Accept"), ",") {
 		mediaType, params, err := mime.ParseMediaType(strings.TrimSpace(value))
-		if err == nil && mediaType == "application/json" && params["q"] != "0" {
+		if err != nil || mediaType != "application/json" {
+			continue
+		}
+		quality := 1.0
+		if raw, exists := params["q"]; exists {
+			quality, err = strconv.ParseFloat(raw, 64)
+		}
+		if err == nil && quality > 0 && quality <= 1 {
 			return true
 		}
 	}
